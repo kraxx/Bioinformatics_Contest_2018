@@ -1,5 +1,5 @@
 /*********************************************************
-Bioinformatics Contest 2018 = Problem 1-2 (Hard)
+Bioinformatics Contest 2018 : Problem 1-2 (Hard)
 *********************************************************/
 
 package main
@@ -14,32 +14,41 @@ import (
 
 func findMaxATP(glucose, oxygen, dollars int) string {
 	gluCount := 0
-	oxyCount := 0
-	for {
-		if dollars-glucose >= 0 {
-			dollars -= glucose
-			gluCount++
-		} else {
-			break
-		}
-		for i := 0; i < 6; i++ {
-			if dollars-oxygen >= 0 {
-				dollars -= oxygen
-				oxyCount++
+	oxyCount := 0		
+
+	// If pure fermentation costs more than aerobic + fermentation;
+	// cost of 38ATP through fermentation > cost of 38ATP through aerobic + fermentation
+	if glucose * 19 > glucose + (oxygen * 6) {
+		for {
+			if dollars-glucose >= 0 {
+				dollars -= glucose
+				gluCount++
+			} else {
+				break
+			}
+			for i := 0; i < 6; i++ {
+				if dollars-oxygen >= 0 {
+					dollars -= oxygen
+					oxyCount++
+				} else {
+					break
+				}
+			}
+		} 
+		// Just fermentation, it's cheaper
+	} else {
+
+		for {
+			if dollars - glucose >= 0 {
+				dollars -= glucose
+				gluCount++
 			} else {
 				break
 			}
 		}
-		if dollars-oxygen <= 0 {
-			break
-		}
+
 	}
-	oxyFloat := float64(oxyCount)
-	// fmt.Println(oxyFloat)
-	producedATP := 6 * oxyFloat
-	if 6*gluCount > oxyCount {
-		producedATP += 2
-	}
+	producedATP := (6 * float64(oxyCount)) + (2 * float64(gluCount)) 
 	return strconv.FormatFloat(producedATP, 'f', -1, 64)
 }
 
@@ -62,16 +71,12 @@ func main() {
 		var bufToPrint string = ""
 		for scanner.Scan() {
 			str := strings.Split(scanner.Text(), " ")
-			// glucose, err := strconv.ParseFloat(str[0], 64)
-			// oxygen, err := strconv.ParseFloat(str[1], 64)
-			// dollars, err := strconv.ParseFloat(str[2], 64)
 			glucose, err := strconv.Atoi(str[0])
 			oxygen, err := strconv.Atoi(str[1])
 			dollars, err := strconv.Atoi(str[2])
 			if err != nil {
 
 			}
-			// outputFile.WriteString(findMaxATP(glucose, oxygen, dollars) + "\n")
 			bufToPrint += findMaxATP(glucose, oxygen, dollars) + "\n"
 		}
 		if err := scanner.Err(); err != nil {
