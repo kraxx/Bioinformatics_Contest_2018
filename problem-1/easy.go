@@ -41,6 +41,7 @@ func main() {
 			fmt.Fprintln(os.Stderr, "Error creating output file")
 			os.Exit(1)
 		}
+		var bufToPrint string = ""
 		for scanner.Scan() {
 			str := strings.Split(scanner.Text(), " ")
 			glucose, err := strconv.ParseFloat(str[0], 64)
@@ -48,11 +49,12 @@ func main() {
 			dollars, err := strconv.ParseFloat(str[2], 64)
 			if err != nil {
 
-			}
-			outputFile.WriteString(findMaxATP(glucose, oxygen, dollars) + "\n")
+			}			
+			bufToPrint += findMaxATP(glucose, oxygen, dollars) + "\n"
 		}
 		if err := scanner.Err(); err != nil {
 			fmt.Fprintln(os.Stderr, "reading standard input:", err)
 		}
+		outputFile.WriteString(bufToPrint)
 	}
 }
