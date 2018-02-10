@@ -41,6 +41,7 @@ func main() {
 			fmt.Fprintln(os.Stderr, "Error creating output file")
 			os.Exit(1)
 		}
+		// Buffer to hold our answer string
 		var bufToPrint string = ""
 		for scanner.Scan() {
 			str := strings.Split(scanner.Text(), " ")

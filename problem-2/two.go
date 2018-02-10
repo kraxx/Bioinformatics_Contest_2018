@@ -1,5 +1,5 @@
 /*********************************************************
-Bioinformatics Contest 2018 = Problem 2-2
+Bioinformatics Contest 2018 : Problem 2-2
 *********************************************************/
 
 package main
@@ -107,8 +107,6 @@ func changeCodon(sequence string, l, r int) int {
 
 	for i := l - 1; i < r; i++ {
 
-		// fmt.Println("idx: ", i)
-
 		// Skip start codon
 		if i <= 2 {
 			continue
@@ -118,8 +116,6 @@ func changeCodon(sequence string, l, r int) int {
 		// index of said block
 		blockIdx := i % 3
 		codon := sequence[block : block+3]
-
-		fmt.Println(codon, " ", blockIdx)
 
 		// Almost all codons will change amino acids if their first nucleotide changes
 		if blockIdx == 0 {
@@ -156,13 +152,8 @@ func findMinChanges(scanner *bufio.Scanner) int {
 	scanner.Scan()
 	numSites, _ := strconv.Atoi(strings.Trim(scanner.Text(), " "))
 
-	fmt.Println(sequence)
-	// fmt.Println("nums: ", numSites)
-
 	lastChangedIdx := 0
 	changes := 0
-	// If there's an error, make note. We still have to go through our loop and scan
-	wrong := false
 
 	for j := 0; j < numSites; j++ {
 		scanner.Scan()
@@ -170,27 +161,30 @@ func findMinChanges(scanner *bufio.Scanner) int {
 		l, _ := strconv.Atoi(siteRange[0])
 		r, _ := strconv.Atoi(siteRange[1])
 
-		fmt.Println("Range: ", l, r)
-
 		// Can't change start codon
-		if r <= 3 || wrong == true {
-			wrong = true
-			continue
+		if r <= 3 {
+			// Finish reading, return error
+			for k := j; k < numSites - 1; k++ {
+				scanner.Scan()
+			}
+			return -1
 		}
 		// If a nucleotide has been swapped, move on
 		if l <= lastChangedIdx && lastChangedIdx <= r {
 			continue
 		}
 		lastChangedIdx = changeCodon(sequence, l, r)
-		fmt.Println("Changed Idx: ", lastChangedIdx)
 		if lastChangedIdx != -1 {
-			changes += 1
+			changes++
 		} else {
-			wrong = true
-			continue
+			// Finish reading, return error
+			for k := j; k < numSites; k++ {
+				scanner.Scan()
+			}
+			return -1
 		}
 	}
-	if changes == 0 || wrong == true {
+	if changes == 0 {
 		return -1
 	}
 	return changes
@@ -217,7 +211,7 @@ func main() {
 
 		for i := 0; i < numTests; i++ {
 			wew := findMinChanges(scanner)
-			fmt.Println(wew, "\n")
+			fmt.Println(wew)
 		}
 	}
 }

@@ -5,5 +5,5 @@ import (
 )
 
 func main() {
-
+	// I just hardcoded the answer
 }
