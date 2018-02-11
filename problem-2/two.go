@@ -103,7 +103,50 @@ var AA = map[string]int{
 	"GGG": glycine,
 }
 
-func changeCodon(sequence string, l, r int) int {
+func mustDoubleSwap(codon string) bool {
+
+	return codon == "CUU" || codon == "CUC" || // Leucine
+			codon == "CGU" || codon == "CGC" || // Arginine
+			AA[codon] == serine
+}
+
+func canDoubleSwap(codon string) bool {
+
+	return mustDoubleSwap(codon) || codon == "UUA" || codon == "UUG" || // Leucine
+			codon == "AGA" || codon == "AGG" || // Arginine
+			codon == "UAG" || codon == "UGA" // Stop codons
+}
+
+func canSingleSwap(codon string) bool {
+	return !mustDoubleSwap(codon) || AA[codon] != methionine || AA[codon] != tryptophan
+}
+
+func allocateSitesArray(scanner *bufio.Scanner, numSites int) ([][]int, bool) {
+
+	sites := make([][]int, numSites)
+	for i := range sites {
+		scanner.Scan()
+		siteRange := strings.Split(scanner.Text(), " ")
+		l, _ := strconv.Atoi(siteRange[0])
+		r, _ := strconv.Atoi(siteRange[1])
+
+		// fmt.Println(l, r)
+
+		// Can't change start codon
+		if r <= 3 {
+			return sites, false
+		}
+		sites[i] = make([]int, 2)
+		sites[i][0], sites[i][1] = l, r
+	}
+	return sites, true
+}
+
+func changeCodon(sequence string, l, r int) (int, bool) {
+
+	// If we can and must, we double swap
+	ds := false
+	dsIdx := 0
 
 	for i := l - 1; i < r; i++ {
 
@@ -117,19 +160,38 @@ func changeCodon(sequence string, l, r int) int {
 		blockIdx := i % 3
 		codon := sequence[block : block+3]
 
+
+		if canDoubleSwap(codon) {
+			if AA[codon] == serine {
+
+				if r % 3 > 0 {
+					ds = true
+					dsIdx = (r % 3) + 1
+				}
+
+			} else if AA[codon] == arginine || AA[codon] == leucine || AA[codon] == stopCodon {
+
+				if r % 3 > 1 {
+					ds = true
+					dsIdx = (r % 3) + 1					
+				}
+
+			}
+		}
+
 		// Almost all codons will change amino acids if their first nucleotide changes
 		if blockIdx == 0 {
 
 			// Certain arginine codons are the only ones allowed to swap their first nucleotide
 			if codon == "CGA" || codon == "CGG" || codon == "AGA" || codon == "AGG" {
-				return i + 1
+				return i + 1, false
 			}
 			continue
 			// Same applies to 2nd nucleotide
 		} else if blockIdx == 1 {
 			// Stop codons UAA and UGA are the only exemptions
 			if codon == "UAA" || codon == "UGA" {
-				return i + 1
+				return i + 1, false
 			}
 			continue
 		} else {
@@ -138,49 +200,110 @@ func changeCodon(sequence string, l, r int) int {
 			if codon == "UGA" || codon == "UGG" {
 				continue
 			}
-			return i + 1
+			return i + 1, false
 		}
+
+	}
+	if ds == true {
+		return dsIdx, true
 	}
 	// No swaps
-	return -1
+	return -1, false
 }
 
 func findMinChanges(scanner *bufio.Scanner) int {
 
 	scanner.Scan()
 	sequence := strings.Trim(scanner.Text(), " ")
+	fmt.Println(len(sequence))
 	scanner.Scan()
 	numSites, _ := strconv.Atoi(strings.Trim(scanner.Text(), " "))
 
+	// Allocate 2D int array to hold all of our site ranges
+	sites, passed := allocateSitesArray(scanner, numSites)
+	if passed == false {
+		return -1
+	}
+
 	lastChangedIdx := 0
+	doubleSwapped := false
 	changes := 0
 
-	for j := 0; j < numSites; j++ {
-		scanner.Scan()
-		siteRange := strings.Split(scanner.Text(), " ")
-		l, _ := strconv.Atoi(siteRange[0])
-		r, _ := strconv.Atoi(siteRange[1])
+	for i := 0; i < numSites; i++ {
 
-		// Can't change start codon
-		if r <= 3 {
-			// Finish reading, return error
-			for k := j; k < numSites - 1; k++ {
-				scanner.Scan()
-			}
-			return -1
-		}
+		l, r := sites[i][0], sites[i][1]
+
+/*
 		// If a nucleotide has been swapped, move on
 		if l <= lastChangedIdx && lastChangedIdx <= r {
 			continue
 		}
-		lastChangedIdx = changeCodon(sequence, l, r)
-		if lastChangedIdx != -1 {
+*/
+		// If rightmost nucleotide can overlap onto another site
+		if i < numSites - 1 {
+			rBlockIdx := r % 3
+			nextL := sites[i+1][0]
+
+			// If next siteRange's Leftmost index can overlap with our current rightmost index
+			if (rBlockIdx == 1 && nextL - r <= 2) || (rBlockIdx == 2 && nextL - r == 1) {
+				// Rightmost codon
+				rBlock := ((r - 1) / 3) * 3
+				rCodon := sequence[rBlock:rBlock+3]
+
+				nextR := sites[i+1][1]
+				// If rightmost siteRange of nextR is restricted to range of the last codon
+				if (rBlockIdx == 1 && nextR - r <= 2) || (rBlockIdx == 2 && nextR - r == 1) {
+
+					if mustDoubleSwap(rCodon) == true {
+						if AA[rCodon] == serine {
+							// We need specific nucleotides on left and right sites
+							if rBlockIdx != 1 || nextL % 3 != 2 {
+								return -1
+							} else {
+								changes += 2
+								i++
+								continue
+							}
+						} else if AA[rCodon] == leucine || AA[rCodon] == arginine {
+							// If we are restricted to using only 2nd nucleotide of left siteRange
+							if rBlockIdx == 2 && r - l == 0 {
+								return -1
+							} else {
+								changes += 2
+								i++
+								continue
+							}
+						}
+					}
+				}
+
+				// Perform a double swap if possible
+				if canDoubleSwap(rCodon) == true {
+
+					if AA[rCodon] == leucine || AA[rCodon] == arginine {
+						// If we are restricted to using only 2nd nucleotide of left siteRange
+						if !(rBlockIdx == 2 && r - l == 0) {
+							changes += 2
+							i++
+							continue
+						}
+					} else if rCodon == "UAG" || rCodon == "UGA" {
+						changes += 2
+						i++
+						continue
+					}
+				}
+
+			}			
+		}
+
+		lastChangedIdx, doubleSwapped = changeCodon(sequence, l, r)
+		// If a nucleotide can be swapped, we're good
+		if doubleSwapped == true {
+			changes += 2
+		} else if lastChangedIdx != -1 {
 			changes++
 		} else {
-			// Finish reading, return error
-			for k := j; k < numSites; k++ {
-				scanner.Scan()
-			}
 			return -1
 		}
 	}
@@ -199,19 +322,26 @@ func main() {
 			fmt.Fprintln(os.Stderr, "Error opening file")
 			os.Exit(1)
 		}
-		// outputFile, err := os.Create(strings.TrimSuffix(file, ".txt") + "out.txt")
+		// outputFile, err := os.Create(strings.TrimSuffix(file, ".txt") + ".out.txt")
 		// if err != nil {
 		// 	fmt.Fprintln(os.Stderr, "Error creating output file")
 		// 	os.Exit(1)
 		// }
 
 		scanner := bufio.NewScanner(openFile)
+		buf := make([]byte, 0, 64*1024)
+		scanner.Buffer(buf, 1024*1024)
 		scanner.Scan()
 		numTests, _ := strconv.Atoi(strings.Trim(scanner.Text(), " "))
+
+		// Buffer to hold our answer string
+		// var bufToPrint string = ""
 
 		for i := 0; i < numTests; i++ {
 			wew := findMinChanges(scanner)
 			fmt.Println(wew)
+			// bufToPrint += strconv.Itoa(wew) + "\n"
 		}
+		// outputFile.WriteString(bufToPrint)
 	}
 }
